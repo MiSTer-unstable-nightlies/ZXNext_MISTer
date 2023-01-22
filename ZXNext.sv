@@ -52,13 +52,14 @@ module emu
 	output        VGA_F1,
 	output [1:0]  VGA_SL,
 	output        VGA_SCALER, // Force VGA scaler
+	output        VGA_DISABLE, // analog out is off
 
 	input  [11:0] HDMI_WIDTH,
 	input  [11:0] HDMI_HEIGHT,
 	output        HDMI_FREEZE,
 
 `ifdef MISTER_FB
-	// Use framebuffer in DDRAM (USE_FB=1 in qsf)
+	// Use framebuffer in DDRAM
 	// FB_FORMAT:
 	//    [2:0] : 011=8bpp(palette) 100=16bpp 101=24bpp 110=32bpp
 	//    [3]   : 0=16bits 565 1=16bits 1555
@@ -187,6 +188,7 @@ assign UART_RTS = 0;
 assign UART_DTR = 0;
 
 assign VGA_SCALER = 0;
+assign VGA_DISABLE = 0;
 assign VGA_F1 = 0;
 assign HDMI_FREEZE = 0;
 
@@ -343,7 +345,7 @@ zxnext_top zxnext_top
 
 	.CPU_SPEED_SW  (status[10]),
 	.CPU_SPEED     (cpu_speed),
-	.CPU_WAIT      (RAM_A_WAIT | spi_wait),
+	.CPU_WAIT      (RAM_A_WAIT || sd_wait),
 
 	.RAM_A_ADDR    (RAM_A_ADDR),
 	.RAM_A_REQ     (RAM_A_REQ),
@@ -548,14 +550,8 @@ sd_card #(.WIDE(1)) sd_card_1
 	.miso(vsdmiso1)
 );
 
-reg spi_wait;
-always @(posedge clk_sys) begin
-	reg [1:0] sd_wait;
-
-	sd_wait <= (sd_wait & sd_ack) | sd_wr;
-	if(sdclk && sd_wait) spi_wait <= 1; // extend existing spi wait by sd wait
-	if(!sd_wait) spi_wait <= 0;
-end
+reg [1:0] sd_wait;
+always @(posedge clk_sys) sd_wait <= (sd_wait & sd_ack) | sd_wr;
 
 assign SD_CS   = sdss0  |  vsd_sel0;
 assign SD_SCK  = sdclk  & ~vsd_sel0;
